@@ -32,7 +32,7 @@ public final class WebServer{
 			catch(IOException e){
 				System.out.println("Error establishing client socket");
 			}
-			System.out.println("Client socket successfully set up...");
+			System.out.println("Client socket successfully set up. Starting HTTP request thread...");
 			HttpRequest clientRequest = new HttpRequest(clientSocket);
 			Thread thread = new Thread(clientRequest);
 			thread.start();
@@ -66,7 +66,7 @@ final class HttpRequest implements Runnable{
 	{
 		// Get a reference to the socket's input and output streams.
 		InputStream is = socket.getInputStream();
-		OutputStream os = socket.getOutputStream();
+		DataOutputStream os = new DataOutputStream(socket.getOutputStream());
 
 		// Set up input stream filters.
 		BufferedReader br = new BufferedReader(
@@ -76,6 +76,7 @@ final class HttpRequest implements Runnable{
 		String requestLine = br.readLine();
 
 		//Uncomment this block to print entire HTTP request message for debugging purposes
+		/*
 		System.out.println();
 		System.out.println(requestLine);
 
@@ -83,12 +84,14 @@ final class HttpRequest implements Runnable{
 		while ((headerLine = br.readLine()).length() != 0) {
 			System.out.println(headerLine);
 		}
+		*/
 
-		/*StringTokenizer tokens = new StringTokenizer(requestLine);
+		//Extract filename
+		StringTokenizer tokens = new StringTokenizer(requestLine);
 		tokens.nextToken();
 		String fileName = tokens.nextToken();
 
-		filename = "." + fileName;
+		fileName = "." + fileName;
 
 		FileInputStream fis = null;
 		boolean fileExists = true;
@@ -99,6 +102,11 @@ final class HttpRequest implements Runnable{
 			fileExists = false;
 		}
 
+		System.out.println("Requested file is " + fileName);
+		if(fileExists) System.out.println("Requested file exists");
+		else System.out.println("Requested file does not exist");
+
+		//Set up response headers
 		String statusLine = null;
 		String contentTypeLine = null;
 		String entityBody = null;
@@ -108,31 +116,62 @@ final class HttpRequest implements Runnable{
 				contentType( fileName ) + CRLF;
 		} 
 		else {
-			statusLine = "HTTP/1.1 404 NOT FOUND";
-			contentTypeLine = ?;
+			statusLine = "HTTP/1.1 404 Not Found";
+			contentTypeLine = "No contents";
 			entityBody = "<HTML>" + 
 				"<HEAD><TITLE>Not Found</TITLE></HEAD>" +
-				"<BODY>Not Found</BODY></HTML>";
-		}		
+				"<BODY>Sorry, WebServer.java could not find the requested file<br>" + 
+				"The requested file was  " + fileName + 
+				"</HTML>";
+		}	
 
+		//Write response headers to output stream 
+		System.out.println("Status line: " + statusLine);
+		System.out.println("Content line: " + contentTypeLine);
 		os.writeBytes(statusLine);
 		os.writeBytes(contentTypeLine);
 		os.writeBytes(CRLF);
 
+		//Send requested file
 		if(fileExists){
 			sendBytes(fis, os);
 			fis.close();
 		}	
 		else{
-			os.writeBytes(entityBody4);
+			os.writeBytes(CRLF);
+			os.writeBytes(entityBody);
+			//os.writeBytes(CRLF);
 		}
 
-
-
-		*/
 		is.close();
 		os.close();
 		socket.close();
+	}
+
+	//Write requested file to socket's output stream
+	private static void sendBytes(FileInputStream fis, OutputStream os) throws Exception{
+	   // Construct a 1K buffer to hold bytes on their way to the socket.
+	   byte[] buffer = new byte[1024];
+	   int bytes = 0;
+
+	   // Copy requested file into the socket's output stream.
+	   while((bytes = fis.read(buffer)) != -1 ) {
+	      os.write(buffer, 0, bytes);
+	   }
+	}
+
+	//Return appropriate value for Content-Type response header for given fileName
+	private static String contentType(String fileName){
+		if(fileName.endsWith(".htm") || fileName.endsWith(".html")) {
+			return "text/html";
+		}
+		if(fileName.endsWith(".gif")) {
+			return "image/gif";
+		}
+		if(fileName.endsWith(".jpg")) {
+			return "image/jpeg";
+		}
+		return "application/octet-stream";
 	}
 
 
